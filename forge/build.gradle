@@ -100,11 +100,15 @@ dependencies {
         transitive = false
     }
 
-    forgeRuntimeLibrary shadowCommon("org.valkyrienskies:physics_api_krunch:1.0.0+eb3ae45554") {
+    forgeRuntimeLibrary include("org.valkyrienskies.core:util:${rootProject.vs_core_version}") {
         transitive = false
     }
 
-    forgeRuntimeLibrary shadowCommon("org.valkyrienskies:physics_api:1.0.0+0b6f5db802") {
+    forgeRuntimeLibrary shadowCommon("org.valkyrienskies:physics_api_krunch:1.0.0+ae61d8d103") {
+        transitive = false
+    }
+
+    forgeRuntimeLibrary shadowCommon("org.valkyrienskies:physics_api:1.0.0+94304c13aa") {
         transitive = false
     }
 
@@ -130,7 +134,6 @@ dependencies {
 
     forgeRuntimeLibrary include("com.networknt:json-schema-validator:1.0.71") { transitive = false }
     forgeRuntimeLibrary include("com.ethlo.time:itu:1.7.0") { transitive = false }
-    forgeRuntimeLibrary include("com.github.imifou:jsonschema-module-addon:1.2.1") { transitive = false }
     forgeRuntimeLibrary include("com.github.victools:jsonschema-module-jackson:4.25.0") { transitive = false }
     forgeRuntimeLibrary include("com.github.victools:jsonschema-generator:4.25.0") { transitive = false }
     forgeRuntimeLibrary include("com.fasterxml:classmate:1.5.1") { transitive = false }
@@ -157,13 +160,13 @@ shadowJar {
     exclude "net/optifine/**"
 
     configurations = [project.configurations.shadowCommon]
-    classifier "dev-shadow"
+    archiveClassifier.set "dev-shadow"
 }
 
 remapJar {
     input.set shadowJar.archiveFile
     dependsOn shadowJar
-    classifier null
+    archiveClassifier.set null
 }
 
 compileKotlin {
@@ -171,7 +174,7 @@ compileKotlin {
 }
 
 jar {
-    classifier "dev"
+    archiveClassifier.set "dev"
 }
 
 sourcesJar {
