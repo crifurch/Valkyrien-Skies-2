@@ -6,6 +6,7 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.block.Rotation.NONE
+import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.LevelChunk
 import org.valkyrienskies.core.api.ships.ServerShip
@@ -58,6 +59,55 @@ fun relocateBlock(
         val be = level.getBlockEntity(to)!!
 
         be.load(it)
+    }
+}
+
+/**
+ * Relocate block
+ *
+ * @param level
+ * @param from coordinate (can be local or global coord)
+ * @param toChunk
+ * @param to coordinate (can be local or global coord)
+ * @param toShip should be set when you're relocating to a ship
+ * @param rotation Rotation.NONE is no change in direction, Rotation.CLOCKWISE_90 is 90 degrees clockwise, etc.
+ */
+fun relocateBlocks(
+    level: Level, blocks: Map<BlockPos, BlockPos>,
+) {
+    val blockPosToClear = arrayListOf<BlockEntity>()
+    for (block in blocks) {
+        val fromChunk = level.getChunk(block.key)
+        val toChunk = level.getChunk(block.value)
+        var state = fromChunk.getBlockState(block.key)
+        val entity = fromChunk.getBlockEntity(block.key)
+        val tag = entity?.let {
+            val tag = it.saveWithFullMetadata()
+            tag.putInt("x", block.value.x)
+            tag.putInt("y", block.value.y)
+            tag.putInt("z", block.value.z)
+
+            tag
+        }
+        toChunk.setBlockState(block.value, state, false)
+
+        tag?.let {
+            val be = level.getBlockEntity(block.value)!!
+
+            be.load(it)
+        }
+        entity?.let {
+            blockPosToClear.add(it)
+        }
+        if (entity == null) {
+            fromChunk.setBlockState(block.key, AIR, false)
+        }
+    }
+    for (clear in blockPosToClear) {
+        if (clear is Clearable) {
+            clear.clearContent()
+        }
+        level.getChunk(clear.blockPos).setBlockState(clear.blockPos, AIR, false)
     }
 }
 

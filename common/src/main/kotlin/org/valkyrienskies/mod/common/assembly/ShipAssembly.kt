@@ -18,7 +18,10 @@ import org.valkyrienskies.mod.common.playerWrapper
 import org.valkyrienskies.mod.common.shipObjectWorld
 import org.valkyrienskies.mod.common.util.toJOML
 import org.valkyrienskies.mod.util.relocateBlock
+import org.valkyrienskies.mod.util.relocateBlocks
 import org.valkyrienskies.mod.util.updateBlock
+
+public var newImplementation = false
 
 fun createNewShipWithBlocks(
     centerBlock: BlockPos, blocks: DenseBlockPosSet, level: ServerLevel
@@ -46,37 +49,53 @@ fun createNewShipWithBlocks(
     val chunkPoses = chunkPairs.flatMap { it.toList() }
     val chunkPosesJOML = chunkPoses.map { it.toJOML() }
 
+    val blocksToBeUpdated = mutableMapOf<BlockPos, BlockPos>()
+
     // Send a list of all the chunks that we plan on updating to players, so that they
     // defer all updates until assembly is finished
     level.players().forEach { player ->
         PacketStopChunkUpdates(chunkPosesJOML).sendToClient(player.playerWrapper)
     }
+    if (true) {
+        blocks.forEach { x, y, z ->
+            val fromPos = BlockPos(x, y, z)
+            val toPos = BlockPos(x - deltaX * 16, y, z - deltaZ * 16)
+            blocksToBeUpdated[fromPos] = toPos
+        }
+        relocateBlocks(level, blocksToBeUpdated)
 
-    // Use relocateBlock to copy all the blocks into the ship
-    blocks.forEachChunk { chunkX, chunkY, chunkZ, chunk ->
-        val sourceChunk = level.getChunk(chunkX, chunkZ)
-        val destChunk = level.getChunk(chunkX - deltaX, chunkZ - deltaZ)
+        val updateIterator = blocksToBeUpdated.iterator()
 
-        chunk.forEach { x, y, z ->
-            val fromPos = BlockPos((sourceChunk.pos.x shl 4) + x, (chunkY shl 4) + y, (sourceChunk.pos.z shl 4) + z)
-            val toPos = BlockPos((destChunk.pos.x shl 4) + x, (chunkY shl 4) + y, (destChunk.pos.z shl 4) + z)
+        while (updateIterator.hasNext()) {
+            val (fromPos, toPos) = updateIterator.next()
+            updateBlock(level, fromPos, toPos, level.getBlockState(toPos))
+        }
+    } else {
+        blocks.forEachChunk { chunkX, chunkY, chunkZ, chunk ->
+            val sourceChunk = level.getChunk(chunkX, chunkZ)
+            val destChunk = level.getChunk(chunkX - deltaX, chunkZ - deltaZ)
 
-            relocateBlock(sourceChunk, fromPos, destChunk, toPos, false, ship)
+            chunk.forEach { x, y, z ->
+                val fromPos = BlockPos((sourceChunk.pos.x shl 4) + x, (chunkY shl 4) + y, (sourceChunk.pos.z shl 4) + z)
+                val toPos = BlockPos((destChunk.pos.x shl 4) + x, (chunkY shl 4) + y, (destChunk.pos.z shl 4) + z)
+
+                relocateBlock(sourceChunk, fromPos, destChunk, toPos, false, ship)
+            }
+        }
+        // Use updateBlock to update blocks after copying
+        blocks.forEachChunk { chunkX, chunkY, chunkZ, chunk ->
+            val sourceChunk = level.getChunk(chunkX, chunkZ)
+            val destChunk = level.getChunk(chunkX - deltaX, chunkZ - deltaZ)
+
+            chunk.forEach { x, y, z ->
+                val fromPos = BlockPos((sourceChunk.pos.x shl 4) + x, (chunkY shl 4) + y, (sourceChunk.pos.z shl 4) + z)
+                val toPos = BlockPos((destChunk.pos.x shl 4) + x, (chunkY shl 4) + y, (destChunk.pos.z shl 4) + z)
+
+                updateBlock(destChunk.level, fromPos, toPos, destChunk.getBlockState(toPos))
+            }
         }
     }
-
-    // Use updateBlock to update blocks after copying
-    blocks.forEachChunk { chunkX, chunkY, chunkZ, chunk ->
-        val sourceChunk = level.getChunk(chunkX, chunkZ)
-        val destChunk = level.getChunk(chunkX - deltaX, chunkZ - deltaZ)
-
-        chunk.forEach { x, y, z ->
-            val fromPos = BlockPos((sourceChunk.pos.x shl 4) + x, (chunkY shl 4) + y, (sourceChunk.pos.z shl 4) + z)
-            val toPos = BlockPos((destChunk.pos.x shl 4) + x, (chunkY shl 4) + y, (destChunk.pos.z shl 4) + z)
-
-            updateBlock(destChunk.level, fromPos, toPos, destChunk.getBlockState(toPos))
-        }
-    }
+    newImplementation = !newImplementation
 
     // Calculate the position of the block that the player clicked after it has been assembled
     val centerInShip = Vector3d(
